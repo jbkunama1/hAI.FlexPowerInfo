@@ -1,90 +1,101 @@
 # hAI.FlexPowerInfo
 
-Self-hosted Strompreis-Dashboard mit frei konfigurierbarem Tarif und Admin-Oberfläche. Ziel: Web-App, Telegram-Bot und MCP-Server gemeinsam in einem Docker-Container.
+Dein Strompreis. Dein Tarif. Transparent aufgeschlüsselt.
 
-## Projektstatus
+hAI.FlexPowerInfo ist als selbst gehostete Strompreis-Zentrale konzipiert: Börsenpreise mit den eigenen Tarifbestandteilen verbinden und den persönlichen Preis pro Kilowattstunde nachvollziehbar machen – im Browser, über Telegram und für KI-Agenten per MCP.
 
-Dieses Repository startet mit Dokumentation und einer statischen Projektseite. Der im Projektchat erstellte Python-Prototyp ist noch nicht in dieses Repository übertragen. Deshalb enthält dieser Stand noch keine startbare Anwendung und kein veröffentlichtes Docker-Image. Telegram-Bot und MCP-Server sind geplant, nicht implementiert.
+Diese README beschreibt das Zielbild und den vorgesehenen Funktionsumfang des Projekts, keine Zusicherung eines vollständigen Implementierungsstands.
 
-## Funktionsumfang des bisherigen Prototyps
+## Eine Preisbasis, drei Zugänge
 
-- Mobilfreundliches Dashboard mit geschätztem Brutto-Arbeitspreis, Börsenpreis und separatem Grundpreis.
-- Passwortgeschützte Tarifverwaltung mit frei benennbaren Netto-Preisbestandteilen in ct/kWh.
-- Änderbare Umsatzsteuer, monatlicher Grundpreis und prozentuale Servicegebühr.
-- Dynamischer Energiepreis, fester Energieanteil oder manuell eingetragener Monats-/Referenzwert.
-- Manueller oder optional automatischer Abruf, frühestens alle 15 Minuten.
-- SQLite-Persistenz und vorbereitete Docker-/Compose-Konfiguration im Chat-Prototyp.
+| Zugang | Aufgabe im Zielbild |
+| --- | --- |
+| Web-App | Mobilfreundliches Dashboard mit aktuellem Preis, Preisverlauf und Tarifaufschlüsselung |
+| Telegram-Bot | Preise und Bestandteile direkt im Chat abfragen |
+| MCP-Server | Strukturierte Tarif- und Preisdaten für Agenten bereitstellen |
 
-Diese Aufzählung beschreibt den Chat-Prototyp, nicht bereits vorhandenen Anwendungscode dieses Repositorys.
+Alle Zugänge nutzen dieselbe Berechnungslogik und denselben Datenbestand. Web-App, Bot und MCP laufen gemeinsam in einem Docker-Container.
 
-## Geplante gemeinsame Architektur
+## Den eigenen Tarif vollständig abbilden
+
+Die Admin-Oberfläche dient als zentrale Tarifverwaltung. Preisbestandteile lassen sich benennen, hinzufügen, ändern und entfernen:
+
+- Energieanteil: dynamischer Börsenpreis, fester Wert oder Monats-/Referenzwert.
+- Verbrauchsabhängige Bestandteile in ct/kWh, etwa Stromsteuer, Netzentgelte, Konzessionsabgabe und weitere Umlagen oder Zuschläge.
+- Servicegebühren mit einer zum Vertrag passenden Berechnungsbasis.
+- Umsatzsteuer und separater monatlicher Grundpreis.
+
+Ausgangspunkt ist die Abbildung eines Immergrün-Tarifs. Die Konfiguration soll nicht an einen einzelnen Anbieter gebunden sein. Maßgeblich bleiben das persönliche Preisblatt und die darin festgelegten Berechnungsregeln.
+
+## Preise verstehen statt nur Zahlen sehen
+
+Das Dashboard soll den persönlichen Brutto-Arbeitspreis zusammen mit seiner Zusammensetzung zeigen:
+
+```text
+Energieanteil
++ verbrauchsabhängige Tarifbestandteile
++ tarifliche Servicegebühr
+= Netto-Arbeitspreis
++ Umsatzsteuer
+= Brutto-Arbeitspreis in ct/kWh
+```
+
+Der Grundpreis bleibt separat sichtbar. Prozentuale Gebühren müssen entsprechend ihrer vertraglichen Basis berechnet werden; die Darstellung ist kein pauschales Berechnungsschema für jeden Tarif.
+
+## Aktualisierung und Zeitauflösung
+
+Vorgesehen sind manuelle Abfragen und ein optionaler automatischer Abruf, beispielsweise alle 15 Minuten. Die gelieferten Preisintervalle bleiben unverändert. Ein häufigerer Abruf erzeugt keine feineren Börsenpreise und ändert nicht das Abrechnungsmodell des Vertrags.
+
+Stündliche oder viertelstündliche Preise, Monatsreferenzen und feste Arbeitspreise müssen eindeutig voneinander unterschieden werden. Datenquelle, Gültigkeitsintervall, letzter erfolgreicher Abruf und Konfigurationsstatus gehören zu jeder aussagekräftigen Preisauskunft.
+
+## MCP für Agenten
+
+Als Schnittstelle ist ein authentifizierter Streamable-HTTP-Endpunkt unter `/mcp` vorgesehen. Der lesende Werkzeugumfang:
+
+| Tool | Ziel der Abfrage |
+| --- | --- |
+| `get_current_price` | Aktueller geschätzter Arbeitspreis mit Börsen-/Energieanteil, einzelnen Zuschlägen, Servicegebühr und Umsatzsteuer |
+| `get_price_schedule` | Verfügbare Preisintervalle für einen gewählten Zeitraum |
+| `get_tariff` | Tarifmodell, Preisbestandteile und Berechnungsregeln |
+| `get_status` | Datenalter, Abruffehler und Konfigurationsstatus |
+
+Agenten erhalten strukturierte Werte mit Einheiten und Zeitbezug. Der Grundpreis wird getrennt zurückgegeben. Tarifänderungen bleiben der Admin-Oberfläche vorbehalten.
+
+## Telegram
+
+Der Bot soll dieselben Preise und Aufschlüsselungen wie die Web-App liefern. Zugriff erhalten ausschließlich freigegebene Nutzer beziehungsweise Chats. Bot-Zugang und Agent-Zugang bleiben von der Admin-Anmeldung getrennt.
+
+## Self-hosted mit Docker und Portainer
 
 ```text
 Ein Docker-Container
-|-- Web-App und Admin-Oberfläche
-|-- Telegram-Bot mit Nutzerfreigabe
-|-- MCP-Server mit lesenden Agent-Tools
-`-- Gemeinsamer Tarifdienst und SQLite-Volume
+├── Web-App und Admin-Oberfläche
+├── Telegram-Bot
+├── MCP-Server
+└── Gemeinsamer Tarif- und Preisdienst
+    ├── Marktdatenabruf und Cache
+    ├── Tarifberechnung
+    └── SQLite im persistenten Volume
 ```
 
-### Geplante MCP-Tools
+Ziel des Betriebsmodells sind eine schlanke Bereitstellung über Docker Compose oder Portainer, persistente Einstellungen und zentrale Konfiguration über Umgebungsvariablen beziehungsweise Secrets. Es werden keine persönlichen Vertragsdaten im öffentlichen Repository benötigt.
 
-| Tool | Zweck |
-| --- | --- |
-| get_current_price | Aktueller geschätzter Preis inklusive aller Bestandteile |
-| get_price_schedule | Verfügbare Preisintervalle für einen Zeitraum |
-| get_tariff | Konfigurierte Tarifbestandteile und Berechnungsmodell |
-| get_status | Datenalter, Abrufstatus und Konfigurationsstatus |
+## Daten und Verlässlichkeit
 
-MCP ist als Streamable-HTTP-Endpunkt unter /mcp mit eigenem Zugang vorgesehen. Agenten sollen zunächst keine Tarifänderungen vornehmen können. Die konkrete Client-Authentifizierung wird bei der Implementierung abgeglichen.
+Als erster Marktdatenadapter ist aWATTar Deutschland vorgesehen. Die Tariflogik bleibt von der Quelle getrennt. Eine automatische Anmeldung im Immergrün-Kundenportal ist nicht Bestandteil des Zielbilds.
 
-## Preisberechnung
-
-Alle Tarif-Eingaben sind netto. Grundschema:
-
-```text
-Energieanteil + zusätzliche ct/kWh-Bestandteile + Servicegebühr
-= Netto-Arbeitspreis
-Netto-Arbeitspreis × (1 + Umsatzsteuer / 100)
-= Brutto-Arbeitspreis
-```
-
-Der monatliche Grundpreis wird separat ausgewiesen. Gebührenbasis und Rundung müssen mit dem tatsächlichen Vertrag abgeglichen werden. Ein Abruf alle 15 Minuten bedeutet nicht automatisch eine viertelstündliche Abrechnung. Die App soll die tatsächlichen Intervalle der Datenquelle übernehmen.
-
-Es sind keine geprüften Immergrün-Vertragswerte hinterlegt. Das genaue Preisblatt steht noch aus. Monatsdurchschnitt, zeitabhängige Abrechnung und fester Arbeitspreis dürfen nicht verwechselt werden. Eine monatliche Referenz ist im bisherigen Prototyp nur manuell eintragbar. Gebühren auf den gesamten Rechnungsbetrag inklusive Grundpreis sind dort noch nicht abgebildet.
-
-## Datenquelle
-
-Im Prototyp vorgesehen: aWATTar Deutschland, https://api.awattar.de/v1/marketdata . Dokumentation: https://www.awattar.at/services/api/ . EUR/MWh wird durch 10 geteilt, um ct/kWh zu erhalten. Liveabruf und Nutzungsbedingungen sind vor produktivem Einsatz zu prüfen. Keine direkte Verbindung zum Immergrün-Kundenkonto.
-
-## Installation
-
-Noch nicht aus diesem Repository möglich. Nächster Schritt ist die Übertragung und Prüfung des Anwendungscodes samt Dockerfile, Compose-Datei, Beispieldatei für Umgebungsvariablen und Tests. Keine produktiven Zugangsdaten oder persönlichen Tarifunterlagen committen.
+- Ungeprüfte Tarifkonfigurationen und veraltete Daten klar kennzeichnen.
+- Fehlende Preisintervalle nicht durch erfundene Werte ersetzen.
+- Negative Börsenpreise entsprechend den tatsächlichen Vertragsregeln behandeln.
+- Börsenpreis und persönlichen Endkundenpreis getrennt ausweisen.
+- Ergebnisse als Tarifschätzung, nicht als Abrechnungsnachweis verstehen.
 
 ## Sicherheit
 
-- Externer Zugriff nur über HTTPS-Reverse-Proxy oder VPN.
-- Separate Zugangsdaten für Admin, MCP und Telegram vorsehen.
-- Telegram auf freigegebene Nutzer/Chats beschränken.
-- Tokens und Passwörter ausschließlich über Umgebungsvariablen oder Secrets.
-- Fehlende/veraltete Marktdaten und ungeprüfte Tarifwerte sichtbar kennzeichnen.
-- Tarifschätzungen ersetzen keine Abrechnung des Energieversorgers.
+Externer Zugriff ausschließlich über HTTPS oder VPN. Separate Zugangsdaten für Administration, MCP und Telegram; keine Tokens oder Passwörter im Repository. Agent-Tools sind lesend, Telegram-Zugriffe auf freigegebene Identitäten beschränkt.
 
-## GitHub Pages
+## Projektseite und Lizenz
 
-Die statische Projektseite liegt unter docs/index.html. Sie ist keine laufende Strompreis-App und enthält keine privaten Tarifdaten.
+Die statische GitHub-Pages-Projektseite liegt in `docs/index.html`. Sie stellt das Projekt vor; die persönliche Strompreis-App wird auf der eigenen Infrastruktur betrieben.
 
-Nach dem Commit unter Settings → Pages → Build and deployment die Quelle GitHub Actions auswählen. Der enthaltene Workflow veröffentlicht nur den Ordner docs. Die erwartete Projektadresse nach erfolgreicher Einrichtung ist https://jbkunama1.github.io/hAI.FlexPowerInfo/ . Ein erfolgreicher Pages-Deploy muss separat überprüft werden.
-
-## Roadmap
-
-- [ ] Anwendungscode des Chat-Prototyps übernehmen und testen.
-- [ ] Immergrün-Preisblatt und genaue Gebührenformel integrieren.
-- [ ] Telegram-Bot ergänzen.
-- [ ] Authentifizierten MCP-Server ergänzen.
-- [ ] Alle Dienste in einem Container integrieren und Start/Stop testen.
-- [ ] Docker-Build, API-Liveabruf und Integrationsprüfungen automatisieren.
-
-## Lizenz
-
-MIT, siehe LICENSE. Unabhängiges Projekt; keine offizielle Anwendung von Immergrün oder aWATTar.
+MIT-Lizenz, siehe [LICENSE](LICENSE). Ein Projekt von Daniel Lienhard. Keine offizielle Anwendung von Immergrün oder aWATTar.
