@@ -44,3 +44,71 @@ Optionaler Abruf alle 15 Minuten; Quelle und Vertrag bestimmen Preisintervalle. 
 [Installation](INSTALL.md) · [MCP](MCP.md) · [Telegram](TELEGRAM.md) · [MIT](LICENSE)
 
 Die statische GitHub-Pages-Seite ist ausschließlich Projektbeschreibung, keine laufende Preisinstanz. Ein Projekt von highfishAI. Keine offizielle Anwendung von Immergrün oder aWATTar.
+
+## 🧭 Tarif einrichten: Was brauchst du und was trägst du wo ein?
+
+Diese Anleitung ist unabhängig vom Stromanbieter. Öffne deine Instanz direkt unter `/`, melde dich an und klappe „Tarifverwaltung“ auf. Tarifwerte gehören in die App, nicht in die Docker-ENV oder ins öffentliche Repository.
+
+### 📄 1. Unterlagen zusammenstellen
+
+Halte Vertragsbestätigung, aktuell gültiges Preisblatt und die Bedingungen zur Preisberechnung bereit. Eine aktuelle Rechnung kann beim Abgleich helfen. Benötigt werden:
+
+- Vollständiger Tarifname und Gültigkeitsdatum der Preise; mögliche Sonderregel im ersten Monat beachten.
+- Abrechnungsmodell: fester Arbeitspreis, zeitabhängiger Börsenpreis oder Monats-/Referenzwert. Bei Referenzen auch Bezugszeitraum und Berechnungsart prüfen.
+- Energiepreis und alle zusätzlich berechneten ct/kWh-Bestandteile.
+- Grundpreis pro Monat oder Jahr, jeweils mit Netto-/Brutto-Kennzeichnung.
+- Servicegebühr samt genauer Basis: Energie, Energie plus Zuschläge oder gesamter Rechnungsbetrag.
+- Umsatzsteuer und gegebenenfalls vertragliche Regeln für negative Preise beziehungsweise Preisuntergrenzen.
+
+### 🎛️ 2. Werte den Feldern zuordnen
+
+| Feld in der Tarifverwaltung | Hier eintragen |
+| --- | --- |
+| Tarifname | Die vollständige Bezeichnung deines Tarifs. |
+| Preismodell | Das vertragliche Modell anhand der Auswahlhilfe unten. |
+| Energie-/Referenzwert netto ct/kWh | Festen Energieanteil oder manuell ermittelten Referenzwert. Im Börsenmodell kommt der Energieanteil aus der Marktdatenquelle; dieses Feld wird dafür nicht verwendet. |
+| Umsatzsteuer % | Den für deine Rechnung geltenden Umsatzsteuersatz. |
+| Grundpreis netto EUR/Monat | Monatlichen Grundpreis ohne Umsatzsteuer; Jahresbetrag vorher durch zwölf teilen. |
+| Servicegebühr % | Den vertraglichen Prozentsatz; ohne prozentuale Gebühr 0. Einen festen ct/kWh-Aufschlag stattdessen als zusätzlichen Bestandteil erfassen. |
+| Gebührenbasis | „Energieanteil“ oder „Energie + ct/kWh-Bestandteile“ – nur wählen, wenn die Vertragsformel dazu passt. |
+| Optionale Energie-Untergrenze netto ct/kWh | Nur eine tatsächlich geltende Untergrenze des Energieanteils; sonst leer lassen. Sie wirkt vor Zuschlägen und ist keine Untergrenze des gesamten Endkundenpreises. |
+| Abrufintervall Minuten | Beispielsweise 15 für den Marktdatenabruf; keine Änderung des Abrechnungsintervalls. |
+| Zusätzliche Bestandteile netto ct/kWh | Pro zusätzlicher verbrauchsabhängiger Position eine Zeile, z. B. Stromsteuer, Netzentgelt, Konzessionsabgabe, Umlage oder Lieferantenaufschlag. |
+| Automatischer Abruf | Aktivieren, wenn der Server Marktdaten im Hintergrund aktualisieren soll. |
+| Tarifdaten anhand meines Vertrags geprüft | Erst nach Abgleich von Modell, Bestandteilen und Gebührenformel aktivieren. |
+
+### ⚡ 3. Das richtige Preismodell wählen
+
+- „Börsenpreis je Quellintervall“: Nur wenn dein Vertrag den jeweiligen Energiepreis passend zu den gelieferten Intervallen und zur verwendeten Marktreferenz abrechnet. Ein Abruf alle 15 Minuten beweist das nicht.
+- „Fester Energieanteil“: Für einen festen Netto-Energieanteil plus zusätzlich erfasste Bestandteile. Ein vollständiger fester Netto-Arbeitspreis kann ebenfalls als Wert dienen, dann keine enthaltenen Bestandteile oder Gebühren nochmals addieren.
+- „Manueller Monats-/Referenzwert“: Für einen vertraglichen Referenzwert, der manuell eingetragen wird. Einen reinen Energie-Referenzwert von einem vollständigen Arbeitspreis unterscheiden. Die App berechnet derzeit keinen automatischen oder verbrauchsgewichteten Monatsdurchschnitt.
+
+### 🧮 4. Netto, brutto und Einheiten prüfen
+
+Alle Preisbeträge in der Verwaltung sind netto. Falls die Unterlagen nur Bruttopreise enthalten:
+
+```text
+Netto = Brutto / (1 + Umsatzsteuersatz / 100)
+Monatlicher Grundpreis = jährlicher Grundpreis / 12
+```
+
+Reine Rechenbeispiele, keine Tarifempfehlung: Bei 19 % Umsatzsteuer entsprechen 11,90 EUR brutto einem Nettobetrag von 10,00 EUR; 29,75 ct/kWh brutto entsprechen 25,00 ct/kWh netto. Ein jährlicher Brutto-Grundpreis von 142,80 EUR entspricht dann 10,00 EUR netto pro Monat. Prozentangaben sind keine ct/kWh-Werte. EUR/kWh vor dem Eintragen mit 100 in ct/kWh umrechnen.
+
+### 🧩 5. Nichts doppelt berechnen
+
+Prüfe für jede Position, ob sie bereits im eingetragenen Energie-/Arbeitspreis oder Grundpreis enthalten ist. Ein vollständiger Arbeitspreis darf nicht zusätzlich um dieselben Steuern, Netzentgelte oder Gebühren erhöht werden. Jährliche oder monatliche feste Kosten nicht als ct/kWh-Zuschlag eintragen. Ein Gesamt-Grundpreis muss in den monatlichen Grundpreis, nicht zusätzlich in die Verbrauchsbestandteile.
+
+### ⚠️ 6. Grenzen der Berechnung beachten
+
+Die aktuelle Servicegebühr wirkt entweder auf den Energieanteil oder auf Energie plus zusätzliche ct/kWh-Bestandteile. Eine prozentuale Gebühr auf den gesamten Rechnungsbetrag inklusive Grundpreis ist damit nicht vollständig abgebildet. Ebenso sind individuelle Preisdeckel, abweichende Rundungsregeln, zeitvariable Zusatzentgelte oder andere Vertragsformeln nicht automatisch unterstützt. Eine Untergrenze nur setzen, wenn sie exakt zur Vertragsregel passt.
+
+Passt die Formel nicht, keine vermeintlich passende Einstellung erzwingen und den Tarif noch nicht als geprüft markieren. Die Berechnungslogik muss dann ergänzt werden. Das monatliche Preismodell darf nicht als persönlicher Viertelstundenpreis dargestellt werden.
+
+### ✅ 7. Speichern und gegenprüfen
+
+1. Werte eintragen und „Tarif speichern“ wählen.
+2. Marktdaten abrufen beziehungsweise den passenden festen/manuellen Referenzwert verwenden.
+3. Energieanteil, zusätzliche Bestandteile, Servicegebühr, Umsatzsteuer und separaten Grundpreis mit den Vertragsunterlagen vergleichen.
+4. Erst bei passender Formel und korrekten Werten die Prüfbestätigung setzen und erneut speichern.
+
+Die Anzeige bleibt eine Tarifschätzung. Für Hilfe reichen geschwärzte Ausschnitte mit Preisbestandteilen und Berechnungsformel; Name, Anschrift, Vertrags-/Kunden- und Zählernummer sowie Zugangsdaten werden nicht benötigt und gehören nicht ins öffentliche Repository.
