@@ -80,9 +80,10 @@ async def access(req:Request,next):
     expected=public_url or str(req.base_url).rstrip('/')
     if origin and origin.rstrip('/') not in configured|{expected}:return JSONResponse({'error':'Origin nicht freigegeben'},403)
     if origin:legacy.origins.add(origin.rstrip('/'))
-    # No anonymous price API, regardless of obsolete PUBLIC_DASHBOARD values.
     if path.rstrip('/') in ('/api/public','/public.js','/public.html'):
         return JSONResponse({'error':'Nicht gefunden'},404,headers={'Cache-Control':'no-store'})
+    if path.rstrip('/') in ('/admin','/login'):
+        return RedirectResponse('/',status_code=303,headers={'Cache-Control':'no-store'})
     if is_mcp:
         now=time.monotonic()
         for key in list(hits):
@@ -92,10 +93,11 @@ async def access(req:Request,next):
         if key not in hits and len(hits)>=10000:return JSONResponse({'error':'Überlastet'},503)
         if len(hits[key])>=60:return JSONResponse({'error':'Zu viele Anfragen'},429,headers={'Retry-After':'60'})
         hits[key].append(now)
-    elif path not in ('/login','/api/login','/app.js','/style.css','/health') and not session_valid(req):
+    # Root serves only the UI shell. Every data endpoint still requires a session.
+    elif path not in ('/','/api/login','/app.js','/style.css','/health') and not session_valid(req):
         if path.startswith('/api/'):
             return JSONResponse({'error':'Anmeldung erforderlich'},401,headers={'Cache-Control':'no-store'})
-        return RedirectResponse('/login',status_code=303,headers={'Cache-Control':'no-store'})
+        return RedirectResponse('/',status_code=303,headers={'Cache-Control':'no-store'})
     response=await next(req)
     response.headers['Cache-Control']='no-store'
     response.headers['X-Content-Type-Options']='nosniff'
@@ -103,10 +105,6 @@ async def access(req:Request,next):
     return response
 @app.get('/')
 def home():return FileResponse('static/index.html')
-@app.get('/admin')
-def admin():return FileResponse('static/index.html')
-@app.get('/login')
-def login():return FileResponse('static/index.html')
 class MCPTransport:
     async def __call__(self,scope,receive,send):await mcp.session_manager.handle_request(scope,receive,send)
 for path in ('/mcp','/mcp/'):
