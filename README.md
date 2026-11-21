@@ -1,30 +1,23 @@
 <p align="center"><img src="docs/assets/hero.svg" alt="hAI.FlexPowerInfo – Dein Strompreis. Dein Tarif. Deine Kontrolle." width="100%"></p>
 <h1 align="center">⚡ hAI.FlexPowerInfo · highfishAI</h1>
-<p align="center">Dein Strompreis. Dein Tarif. Transparent aufgeschlüsselt.</p>
-<p align="center"><a href="LICENSE"><img src="https://img.shields.io/badge/Lizenz-MIT-22c55e?style=for-the-badge" alt="MIT"></a> <img src="https://img.shields.io/badge/Docker-Self--hosted-2496ed?style=for-the-badge" alt="Docker"> <img src="https://img.shields.io/badge/MCP-Token%20Required-a855f7?style=for-the-badge" alt="MCP Token erforderlich"> <img src="https://img.shields.io/badge/Telegram-Admin%20%26%20Charts-06b6d4?style=for-the-badge" alt="Telegram Admin und Grafiken"></p>
+<p align="center">Dein Strompreis. Dein Tarif. Dein geschützter Zugriff.</p>
+<p align="center"><a href="LICENSE"><img src="https://img.shields.io/badge/Lizenz-MIT-22c55e?style=for-the-badge" alt="MIT"></a> <img src="https://img.shields.io/badge/Web-Login%20Required-06b6d4?style=for-the-badge" alt="Web Login erforderlich"> <img src="https://img.shields.io/badge/MCP-Token%20Required-a855f7?style=for-the-badge" alt="MCP Token erforderlich"> <img src="https://img.shields.io/badge/Docker-Port%208911-2496ed?style=for-the-badge" alt="Docker Port 8911"></p>
 
-## 🌈 Eine Preisbasis. Drei Zugänge.
+## 🌈 Eine Preisbasis. Drei geschützte Zugänge.
 
-Börsenpreise mit deinem persönlichen Tarif verbinden und den Preis pro Kilowattstunde nachvollziehen: im Browser, per Telegram und per tokenpflichtigem MCP. Gemeinsamer Tarifdienst statt widersprüchlicher Berechnungen. Das Ziel ist eine flexible, selbst gehostete Strompreis-Zentrale; diese Beschreibung ist kein erfolgreicher Buildnachweis.
+hAI.FlexPowerInfo verbindet Börsenpreise mit deinem persönlichen Tarif. Eine gemeinsame Berechnung für Browser, Telegram und KI-Agenten, selbst gehostet auf deiner Infrastruktur. Das Zielbild ist nachvollziehbare Tariftransparenz ohne anonymen Zugriff auf deine Daten.
 
-| Zugang | Zugriff |
+| Zugang | Schutz |
 | --- | --- |
-| 🌐 `/` | Preis-Dashboard, optional öffentlich mit PUBLIC_DASHBOARD=true |
-| 🎛️ `/admin` | Tarifverwaltung mit Admin-Login |
-| 🤖 `/mcp` | Jede Anfrage ausschließlich mit Bearer-Token, lesend und schreibend |
-| 💬 Telegram | Freigegebene Nutzer, separate Admin-IDs |
+| 🌐 Web-Dashboard und Tarifverwaltung | Anmeldung mit ADMIN_USER und ADMIN_PASSWORD |
+| 🤖 MCP /mcp | Bearer-Token für jede Anfrage, Lesen und Schreiben |
+| 💬 Telegram | Nutzerfreigabe, separate Admin-IDs für Änderungen |
 
-## 🔐 MCP erreichbar, niemals anonym
-
-MCP_TOKEN ist für Initialisierung, Tool-Liste, Lesen und Schreiben erforderlich. Header: `Authorization: Bearer DEIN_TOKEN`. Leerer Token sperrt den Zugang. Der alte Schalter MCP_PUBLIC wird ignoriert und kann die Prüfung nicht abschalten. Statische Bearer-Authentifizierung, keine OAuth-Discovery. Extern nur mit HTTPS/VPN betreiben.
-
-Tools: get_current_price, get_price_schedule, get_tariff, get_status und update_tariff. Der Token erlaubt alle diese Tools; es gibt keine getrennten Read-/Write-Rollen. update_tariff ersetzt den vollständigen Tarif nach Eingabeprüfung und setzt die Prüfbestätigung zurück. Vor einer Änderung den Tarif abrufen und mit dem Nutzer abstimmen. Keine Secret-Verwaltung oder beliebigen Serverbefehle.
-
-Die öffentliche Webansicht ist unabhängig von MCP. Bei PUBLIC_DASHBOARD=true bleiben die dort sichtbaren Preise und Bestandteile anonym abrufbar. Für private Preisdaten zusätzlich PUBLIC_DASHBOARD=false setzen.
+Ohne Web-Anmeldung ist nur die Login-Oberfläche samt benötigtem JavaScript/CSS erreichbar. /health meldet ausschließlich den Prozessstatus für Docker, keine Preise oder Einstellungen. Dashboard, Preise, Tarif und Status benötigen eine Sitzung. Die frühere /api/public ist abgeschaltet. PUBLIC_DASHBOARD und MCP_PUBLIC können keine anonyme Freigabe mehr aktivieren.
 
 ## 🎛️ Dein Tarif
 
-Energieanteil, frei benannte ct/kWh-Bestandteile, Umsatzsteuer, Grundpreis, Servicegebühr und optionale Energie-Untergrenze. Dynamischer Energiepreis, fester Wert oder manueller Monats-/Referenzwert. Alle Eingaben netto, Grundpreis separat. Gebühren folgen der ausgewählten Vertragsbasis. Ausgangspunkt: ein Immergrün-Tarif, ohne feste Anbieterbindung.
+Dynamischer Energiepreis, fester Wert oder manuelle Monatsreferenz. Frei benannte Preisbestandteile, Steuern, Grundpreis, Servicegebühr und optionale Energie-Untergrenze. Alle Eingaben netto, Grundpreis separat. Ausgangspunkt Immergrün, ohne feste Anbieterbindung.
 
 ```text
 ⚡ Energie + 🧩 Zuschläge + 🧮 Servicegebühr
@@ -32,18 +25,22 @@ Energieanteil, frei benannte ct/kWh-Bestandteile, Umsatzsteuer, Grundpreis, Serv
 = Geschätzter Brutto-Arbeitspreis in ct/kWh
 ```
 
+## 🔐 Agenten mit Token
+
+Tools: get_current_price, get_price_schedule, get_tariff, get_status, update_tariff. Tokenpflicht auch für initialize und tools/list. Leerer MCP_TOKEN sperrt MCP; keine OAuth-Discovery. Der Token erlaubt Lesen und Schreiben. update_tariff ersetzt den vollständigen validierten Tarif und setzt confirmed=false. Änderungen vorher mit dem Nutzer abstimmen. Keine Secret- oder Serverbefehlsverwaltung.
+
 ## 💬 Telegram mit Admin-Menü
 
-Für private Chats reichen TELEGRAM_BOT_TOKEN und TELEGRAM_USER_IDS. Schreibrechte zusätzlich über TELEGRAM_ADMIN_IDS, ausschließlich privat. Startnachricht, Inline-Menü, Preisgrafik und bestätigte Änderungen einzelner Tarifwerte. Details: [TELEGRAM.md](TELEGRAM.md).
+Private Chats benötigen Bot-Token und Nutzer-ID. TELEGRAM_ADMIN_IDS erlaubt zusätzlich bestätigte Änderungen ausgewählter Tarifwerte. Startnachricht, Inline-Menüs, farbige Preisgrafik und Statusauskunft. Details in TELEGRAM.md.
 
-## 🐳 Betrieb
+## 🐳 Deine Infrastruktur
 
-Ein Container, SQLite-Volume, `docker-compose.yml`, Port 8911 → 8080, externes Netzwerk highfishNetwork. PUBLIC_URL vereinfacht Host-/Origin-Prüfung; für Internetbetrieb die eigene HTTPS-Origin setzen. Admin-Passwort mindestens 4 Zeichen; MCP-Token mindestens 32 Zeichen. Öffentliche/autorisiert ausgeführte Datenzugriffe sind begrenzt; Reverse-Proxy-Limits ergänzen.
+Ein Container, SQLite-Volume, docker-compose.yml, Port 8911 → 8080, externes Netzwerk highfishNetwork. PUBLIC_URL bezeichnet lediglich deine Zugriffsadresse, nicht eine öffentliche Datenfreigabe. Für Internetbetrieb HTTPS/VPN und Proxy-Limits. ADMIN_PASSWORD mindestens 4 Zeichen, MCP_TOKEN mindestens 32 Zeichen.
 
-## ⏱️ Nachvollziehbare Daten
+## ⏱️ Nachvollziehbar statt scheinbar exakt
 
-Optionaler Abruf alle 15 Minuten. Quelle und Vertrag bestimmen die tatsächlichen Intervalle. Keine erfundenen Viertelstunden, Monatsreferenzen manuell. Veraltete Daten und ungeprüfte Tarife werden markiert. Kein Abrechnungsnachweis, keine Verbrauchsmessung, keine Servicegebühr auf den Grundpreis. Weitere Automatisierung bleibt Teil des Zielbilds.
+Optionaler Abruf alle 15 Minuten; Quelle und Vertrag bestimmen Preisintervalle. Keine erfundenen Viertelstunden, Monatsreferenzen manuell. Veraltete Daten und ungeprüfte Tarife sichtbar machen. Kein Abrechnungsnachweis, keine Verbrauchsmessung und keine Servicegebühr auf den Grundpreis. Weitere Automatisierung bleibt Teil des Zielbilds. Funktionsbeschreibung ist kein Build- oder Live-Testnachweis.
 
-[Installation](INSTALL.md) · [MCP](MCP.md) · [Docker](DOCKER.md) · [Projektseite](https://jbkunama1.github.io/hAI.FlexPowerInfo/) · [MIT](LICENSE)
+[Installation](INSTALL.md) · [MCP](MCP.md) · [Telegram](TELEGRAM.md) · [MIT](LICENSE)
 
-Ein Projekt von highfishAI. Keine offizielle Anwendung von Immergrün oder aWATTar.
+Die statische GitHub-Pages-Seite ist ausschließlich Projektbeschreibung, keine laufende Preisinstanz. Ein Projekt von highfishAI. Keine offizielle Anwendung von Immergrün oder aWATTar.

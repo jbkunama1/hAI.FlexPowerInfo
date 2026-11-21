@@ -3,7 +3,7 @@ from collections import defaultdict,deque
 from urllib.parse import urlsplit
 from contextlib import asynccontextmanager,suppress
 from fastapi import FastAPI,Request
-from fastapi.responses import FileResponse,JSONResponse
+from fastapi.responses import FileResponse,JSONResponse,RedirectResponse
 from mcp.server.fastmcp import FastMCP
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.routing import Route
@@ -17,25 +17,25 @@ if public_url:
 else:os.environ.setdefault('ALLOWED_HOSTS','*')
 import app as legacy
 from telegram_service import run
-public_web=os.getenv('PUBLIC_DASHBOARD','true').lower()=='true'
 
-def public_state():
+def price_state():
     s=legacy.state()
     return {k:s[k] for k in ('current','tariff_price','rows','source','fetched','stale','configured','units','notice')}
-def public_tariff():
-    s=legacy.state()['tariff']
-    return {k:s[k] for k in ('mode','vat','components','base_net')}
+
+def session_valid(req):
+    session=legacy.sessions.get(req.cookies.get('session',''))
+    return bool(session and session['expires']>time.time())
 
 mcp=FastMCP('hAI.FlexPowerInfo Authenticated',stateless_http=True,json_response=True)
 @mcp.tool()
 def get_current_price()->dict:
     """Authenticated estimated electricity price with explicit units."""
-    s=public_state();s.pop('rows');s['components']=public_tariff()['components'];return s
+    s=price_state();s.pop('rows');s['components']=legacy.state()['tariff']['components'];return s
 @mcp.tool()
 def get_price_schedule(start_ms:int=0,end_ms:int=0)->dict:
     """Authenticated available source intervals."""
     if start_ms<0 or end_ms<0 or (end_ms and end_ms<=start_ms):raise ValueError('Ungültiger Zeitraum')
-    s=public_state();s['rows']=[x for x in s['rows'] if (not start_ms or x['end']>start_ms) and (not end_ms or x['start']<end_ms)]
+    s=price_state();s['rows']=[x for x in s['rows'] if (not start_ms or x['end']>start_ms) and (not end_ms or x['start']<end_ms)]
     return s
 @mcp.tool()
 def get_tariff()->dict:
@@ -44,12 +44,11 @@ def get_tariff()->dict:
 @mcp.tool()
 def get_status()->dict:
     """Authenticated freshness, excluding internal errors."""
-    s=public_state();return {k:s[k] for k in ('source','fetched','stale','configured')}
+    s=price_state();return {k:s[k] for k in ('source','fetched','stale','configured')}
 @mcp.tool()
 def update_tariff(tariff:dict)->dict:
     """WRITE: replace the complete tariff. Read get_tariff first; review changes with the user. All numeric tariff inputs are NET. Clears the tariff's checked flag. Does not alter credentials."""
-    candidate=validate(tariff)
-    candidate['confirmed']=False
+    candidate=validate(tariff);candidate['confirmed']=False
     saved=legacy.store.save_tariff(candidate)
     return {'saved':True,'tariff':saved,'notice':'Tarif gespeichert. Vor Verwendung erneut anhand des Vertrags prüfen.'}
 
@@ -72,8 +71,6 @@ hits=defaultdict(deque)
 async def access(req:Request,next):
     path=req.url.path
     is_mcp=path=='/mcp' or path.startswith('/mcp/')
-    # Authenticate EVERY MCP method before routing or exposing protocol information.
-    # MCP_PUBLIC is intentionally ignored, including existing deployments that set it true.
     if is_mcp:
         supplied=req.headers.get('authorization','').encode()
         if not legacy.mcp_token or not secrets.compare_digest(supplied,('Bearer '+legacy.mcp_token).encode()):
@@ -83,7 +80,10 @@ async def access(req:Request,next):
     expected=public_url or str(req.base_url).rstrip('/')
     if origin and origin.rstrip('/') not in configured|{expected}:return JSONResponse({'error':'Origin nicht freigegeben'},403)
     if origin:legacy.origins.add(origin.rstrip('/'))
-    if is_mcp or path=='/api/public':
+    # No anonymous price API, regardless of obsolete PUBLIC_DASHBOARD values.
+    if path.rstrip('/') in ('/api/public','/public.js','/public.html'):
+        return JSONResponse({'error':'Nicht gefunden'},404,headers={'Cache-Control':'no-store'})
+    if is_mcp:
         now=time.monotonic()
         for key in list(hits):
             while hits[key] and now-hits[key][0]>=60:hits[key].popleft()
@@ -92,21 +92,21 @@ async def access(req:Request,next):
         if key not in hits and len(hits)>=10000:return JSONResponse({'error':'Überlastet'},503)
         if len(hits[key])>=60:return JSONResponse({'error':'Zu viele Anfragen'},429,headers={'Retry-After':'60'})
         hits[key].append(now)
+    elif path not in ('/login','/api/login','/app.js','/style.css','/health') and not session_valid(req):
+        if path.startswith('/api/'):
+            return JSONResponse({'error':'Anmeldung erforderlich'},401,headers={'Cache-Control':'no-store'})
+        return RedirectResponse('/login',status_code=303,headers={'Cache-Control':'no-store'})
     response=await next(req)
     response.headers['Cache-Control']='no-store'
     response.headers['X-Content-Type-Options']='nosniff'
     response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'"
     return response
 @app.get('/')
-def home():return FileResponse('static/public.html' if public_web else 'static/index.html')
+def home():return FileResponse('static/index.html')
 @app.get('/admin')
 def admin():return FileResponse('static/index.html')
-@app.get('/public.js')
-def javascript():return FileResponse('static/public.js',media_type='text/javascript')
-@app.get('/api/public')
-def prices():
-    if not public_web:return JSONResponse({'error':'Öffentliche Ansicht deaktiviert'},404)
-    return dict(public_state(),components=public_tariff()['components'])
+@app.get('/login')
+def login():return FileResponse('static/index.html')
 class MCPTransport:
     async def __call__(self,scope,receive,send):await mcp.session_manager.handle_request(scope,receive,send)
 for path in ('/mcp','/mcp/'):
