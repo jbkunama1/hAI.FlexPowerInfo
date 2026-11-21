@@ -1,11 +1,12 @@
-import os,time,secrets
+import os,time,secrets,asyncio
 from collections import defaultdict,deque
 from urllib.parse import urlsplit
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager,suppress
 from fastapi import FastAPI,Request
 from fastapi.responses import FileResponse,JSONResponse
 from mcp.server.fastmcp import FastMCP
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.routing import Route
 
 public_url=os.getenv('PUBLIC_URL','').rstrip('/')
 if public_url:
@@ -15,8 +16,6 @@ if public_url:
 else:os.environ.setdefault('ALLOWED_HOSTS','*')
 import app as legacy
 from telegram_service import run
-async def telegram():await run(legacy.store,legacy.state)
-legacy.telegram=telegram
 public_web=os.getenv('PUBLIC_DASHBOARD','true').lower()=='true'
 public_mcp=os.getenv('MCP_PUBLIC','true').lower()=='true'
 
@@ -46,11 +45,20 @@ def get_tariff()->dict:
 def get_status()->dict:
     """Public freshness excluding internal errors."""
     s=public_state();return {k:s[k] for k in ('source','fetched','stale','configured')}
+# Initialize the SDK transport manager once; do not copy its Mount routes.
 mcp_app=mcp.streamable_http_app()
 @asynccontextmanager
 async def lifespan(app):
-    async with legacy.lifespan(legacy.app):
-        async with mcp.session_manager.run():yield
+    if len(legacy.password)<16:raise RuntimeError('ADMIN_PASSWORD muss mindestens 16 Zeichen haben')
+    if legacy.mcp_token and len(legacy.mcp_token)<32:raise RuntimeError('MCP_TOKEN muss mindestens 32 Zeichen haben')
+    # Only the gateway MCP manager runs. The mounted admin app owns no lifecycle here.
+    async with mcp.session_manager.run():
+        tasks=[asyncio.create_task(legacy.scheduler()),asyncio.create_task(run(legacy.store,legacy.state))]
+        try:yield
+        finally:
+            for task in tasks:task.cancel()
+            for task in tasks:
+                with suppress(asyncio.CancelledError):await task
 app=FastAPI(lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url=None)
 app.add_middleware(TrustedHostMiddleware,allowed_hosts=legacy.allowed_hosts)
 hits=defaultdict(deque)
@@ -88,5 +96,10 @@ def javascript():return FileResponse('static/public.js',media_type='text/javascr
 def prices():
     if not public_web:return JSONResponse({'error':'Öffentliche Ansicht deaktiviert'},404)
     return dict(public_state(),components=public_tariff()['components'])
-for route in mcp_app.routes:app.router.routes.append(route)
+class MCPTransport:
+    async def __call__(self,scope,receive,send):
+        await mcp.session_manager.handle_request(scope,receive,send)
+# Exact ASGI routes precede the catch-all legacy mount, including the slashless URL.
+for path in ('/mcp','/mcp/'):
+    app.router.routes.append(Route(path,endpoint=MCPTransport(),methods=['GET','POST','DELETE']))
 app.mount('/',legacy.app)
