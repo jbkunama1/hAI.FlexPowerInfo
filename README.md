@@ -105,4 +105,4 @@ Die statische Projektseite liegt in `docs/index.html`; die persönliche App geh�
 
 [Projektseite](https://jbkunama1.github.io/hAI.FlexPowerInfo/) · [MIT-Lizenz](LICENSE)
 
-Ein Projekt von Daniel Lienhard. Unabhängig; keine offizielle Anwendung von Immergrün oder aWATTar.
+Ein Projekt von highfishAI. Unabhängig; keine offizielle Anwendung von Immergrün oder aWATTar.
