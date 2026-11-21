@@ -4,7 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 DATA_DIR=/data
 LABEL org.opencontainers.image.source="https://github.com/jbkunama1/hAI.FlexPowerInfo" org.opencontainers.image.licenses="MIT"
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && useradd -u 10001 app && mkdir /data && chown app /data
-COPY app.py core.py gateway.py telegram_service.py ./
+COPY app.py core.py gateway.py telegram_service.py bot_visuals.py ./
 COPY static ./static
 USER app
 EXPOSE 8080
