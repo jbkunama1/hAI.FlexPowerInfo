@@ -1,48 +1,56 @@
-# Installation und Betrieb
+# Einrichtung
 
-## GHCR und Portainer
+Maßgeblich: `docker-compose.yml`. In Portainer diesen Pfad wählen. Host-Port 8911, intern 8080, bestehendes externes Netzwerk highfishNetwork. Image ghcr.io/jbkunama1/hai.flexpowerinfo:latest; erfolgreicher GHCR-Build ist vor Deployment zu prüfen. Ein öffentliches Repo garantiert kein öffentliches GHCR-Paket.
 
-Image: `ghcr.io/jbkunama1/hai.flexpowerinfo:latest`. Der Workflow `.github/workflows/docker-ghcr.yml` testet vor dem Build, baut linux/amd64 und linux/arm64 und veröffentlicht bei Push auf main latest und den vollständigen Commit-SHA als Tags. v-Tags werden zusätzlich als Image-Tags übernommen. Pull Requests bauen ohne Veröffentlichung. Ein Workflow im Repository bedeutet noch keinen erfolgreichen Build. GHCR-Pakete können anfangs privat sein: Für anonymes Pull gegebenenfalls Package Settings auf Public stellen. Ein öffentliches Repository garantiert kein öffentliches Package.
+## Minimale ENV für LAN-Test
 
-Die Compose-Datei verwendet das GHCR-Image ohne lokalen Build. In Portainer als Stack einfügen und Umgebungsvariablen explizit setzen. Lokale .env-Dateien werden vom Portainer-Webeditor nicht automatisch geladen. Vorher erfolgreichen GHCR-Build prüfen. Nicht für Swarm konzipiert.
-
-```sh
-cp .env.example .env
-joe .env
-# ADMIN_PASSWORD mindestens 16 Zeichen
-# MCP_TOKEN optional, mindestens 32 Zeichen; leer deaktiviert MCP
-docker compose pull
-docker compose up -d
-docker compose logs -f
+```dotenv
+ADMIN_USER=admin
+ADMIN_PASSWORD=EIGENES_PASSWORT_MINDESTENS_16_ZEICHEN
+COOKIE_SECURE=false
+PUBLIC_DASHBOARD=true
+MCP_PUBLIC=true
 ```
 
-Für lokalen Build: `docker build -t hai-flexpowerinfo:local .` und in Compose die Image-Referenz entsprechend ändern.
+BIND_IP ist standardmäßig 0.0.0.0. Damit wird Port 8911 auf allen Host-IPv4-Schnittstellen veröffentlicht; Firewall beachten. Browser: http://SERVER_IP:8911 . Verwaltung: /admin. PUBLIC_URL kann beim lokalen Test leer bleiben. HTTP niemals ungeschützt ins Internet freigeben.
 
-Standardzugriff am Docker-Host: http://127.0.0.1:8098 . Bei rein lokalem HTTP-Test COOKIE_SECURE=false setzen, bei HTTPS true. Für LAN-Zugriff BIND_IP auf Server-LAN-IP setzen; ALLOWED_HOSTS enthält erlaubte Hostnamen/IPs ohne Port, ALLOWED_ORIGINS vollständige Origins inklusive Schema und gegebenenfalls Port. health prüft den Prozess, nicht die Aktualität der Marktdaten. Externer Zugriff ausschließlich über HTTPS oder VPN. Reverse Proxy mit Body-Limit auch für chunked Requests und zusätzlichem Rate-Limit betreiben. Genau ein Worker erforderlich: Sitzungen und Hintergrunddienste laufen im Prozess. Sitzungen verfallen nach acht Stunden und bei Neustart.
+## HTTPS-Domain
 
-## Tarifverwaltung
+```dotenv
+PUBLIC_URL=https://strom.example.org
+COOKIE_SECURE=true
+```
 
-Alle Eingaben netto. Energie-/Referenzwert, bis zu 50 frei benannte ct/kWh-Bestandteile, Umsatzsteuer, Grundpreis, Servicegebühr und optionale Energie-Untergrenze sind einstellbar. Gebührenbasis: Energie oder Energie plus Bestandteile. Untergrenze wirkt vor Zuschlägen. Ohne Untergrenze bleiben negative Energiepreise und negative prozentuale Gebühren erhalten; nur verwenden, wenn der Vertrag dies vorsieht. Kein automatischer Monatsdurchschnitt, keine Verbrauchsmessung, keine Servicegebühr auf den Grundpreis. Referenzwerte sind manuell. Ein vollständiger Arbeitspreis darf nicht nochmals um bereits enthaltene Bestandteile erhöht werden.
+Beispieldomain ersetzen. PUBLIC_URL ist eine reine Origin ohne Pfad oder abschließenden Slash. Daraus werden erlaubter Host und Origin abgeleitet. Ohne PUBLIC_URL werden alle Hosts akzeptiert und Origin-Header gegen die angesprochene Origin geprüft. Für Internetbetrieb PUBLIC_URL setzen. Erweiterte ALLOWED_HOSTS/ALLOWED_ORIGINS sind im Code weiterhin möglich, werden aber nicht mehr durch die Standard-Compose-Datei durchgereicht. Keine Wildcard-Origin-Freigabe und kein CORS für beliebige Websites.
 
-Speichern archiviert eine Tarifrevision mit Speicherzeitpunkt. Die Tabelle verwendet immer den aktuellen Tarif, keine historische Wirksamkeitsauswahl. Import lädt ins Formular zur Prüfung, Speichern validiert serverseitig. Export enthält keine Zugangsdaten. Ergebnisse sind Schätzungen, kein Abrechnungsnachweis.
+## Öffentlicher MCP
 
-Auto-Abruf standardmäßig aus; mindestens 15 Minuten zwischen Versuchen, auch nach Fehlern. Quelle aWATTar DE Day-Ahead; tatsächliche Quellintervalle bleiben erhalten. EUR/MWh geteilt durch 10 ergibt ct/kWh. Letzter erfolgreicher Datensatz bleibt erhalten, kein langfristiges Marktarchiv. Nach einer Stunde ohne erfolgreichen Abruf erscheint eine Warnung; abgelaufene Intervalle sind nie aktueller Börsenpreis. Grafik ist eine beschriftete Intervallübersicht, kein maßstabsgetreues Wertediagramm.
+MCP_PUBLIC=true: /mcp ohne Token, ausschließlich lesend. Öffentlichkeit umfasst geschätzte Preise, Bestandteile, Modell, Umsatzsteuer, Grundpreis und Aktualität. Kein Tarifname, vollständiger Admin-Tarif, Secrets oder interne Fehlertexte. PUBLIC_DASHBOARD=false schaltet nur die öffentliche Webansicht ab, nicht MCP. Für privaten MCP MCP_PUBLIC=false und MCP_TOKEN mit mindestens 32 Zeichen setzen. Statischer Bearer-Token; keine OAuth-Discovery. MCP_PUBLIC=false mit leerem Token sperrt MCP. /admin und /api/status sowie Tarifänderungen bleiben mit Login/CSRF geschützt.
 
-## MCP
-
-Gleicher Port, Endpunkt `/mcp`, offizielles Python MCP SDK mit Streamable HTTP. Header `Authorization: Bearer DEIN_MCP_TOKEN`. Lesende Tools get_current_price, get_price_schedule(start_ms=0,end_ms=0), get_tariff, get_status. Client muss statische Bearer-Tokens unterstützen, keine automatische OAuth-Discovery. Nur über HTTPS/VPN verbinden. Host-/Origin-Konfiguration vor Remote-Einsatz prüfen.
+60 öffentliche Daten-/MCP-Anfragen pro Minute je Client-IP auf Anwendungsebene. Genau einen Worker betreiben. Reverse Proxy zusätzlich mit Body-Limit, TLS und Rate-Limit konfigurieren; Forwarded-Header nur von vertrauenswürdigen Proxys übernehmen. Mehrere Clients können ohne korrekte Proxy-Konfiguration ein gemeinsames Limit teilen.
 
 ## Telegram
 
-TELEGRAM_BOT_TOKEN, TELEGRAM_USER_IDS und TELEGRAM_CHAT_IDS setzen; IDs kommagetrennt. Sender und Zielchat müssen beide freigegeben sein. Ohne alle drei Angaben bleibt Telegram aus. Dedizierten Bot ohne aktiven Webhook verwenden. Long Polling: nicht gleichzeitig einen anderen Poller mit demselben Bot betreiben. Befehle /preis /verlauf /tarif /status /hilfe. Noch keine Inline-Tastatur oder Schwellenwert-Benachrichtigungen. Offset wird persistiert; nach Netzwerkfehlern sind wiederholte Antworten möglich.
+```dotenv
+TELEGRAM_BOT_TOKEN=TOKEN_DES_EIGENEN_BOTS
+TELEGRAM_USER_IDS=123456789
+```
 
-## Tests und Sicherheit
+Für Privat-Chats reicht das. Nutzer muss den Bot starten. Mehrere Nutzer-IDs mit Komma trennen. Ohne TELEGRAM_CHAT_IDS sind nur private Chats zulässig, deren Chat-ID der freigegebenen Nutzer-ID entspricht. Optional TELEGRAM_CHAT_IDS setzen für ausdrücklich erlaubte Zielchats; Sender muss weiterhin freigegeben sein. Dedizierter Bot, kein aktiver Webhook und kein zweiter Poller. Textbefehle /preis /verlauf /tarif /status /hilfe; Inline-Menü inklusive. Keine Schwellenwertalarme. Nach Netzwerkfehlern sind wiederholte Antworten möglich. Keine echten Tokens ins Repository schreiben.
+
+## Tarif und Grenzen
+
+Tarifeingaben netto; dynamisch, fest oder manueller Referenzwert. Servicegebühr auf Energie oder Energie plus Zuschläge, keine Gebühr auf Grundpreis. Untergrenze wirkt vor Zuschlägen. Negative Gebührenbasis bleibt ohne Untergrenze negativ. Alle Tabellenwerte verwenden den aktuellen Tarif, gespeicherte Revisionen sind noch keine historische Wirksamkeitsauswahl. Kein automatisch berechneter Monatsdurchschnitt und kein langfristiges Marktarchiv. Quelle aWATTar DE, Quellintervalle unverändert. Auto-Abruf standardmäßig aus; mindestens 15 Minuten zwischen Versuchen. SQLite-Volume sichern, genau ein Worker. Sitzungen verfallen nach acht Stunden oder Neustart.
+
+## Build und Tests
+
+Docker startet `gateway:app`; `app.py` enthält den geschützten Tarifdienst und die Admin-Routen. Der öffentliche Einstieg und vereinfachtes Telegram werden über gateway.py integriert.
 
 ```sh
 python -m pip install -r requirements.txt
 python -m unittest discover -s tests -v
+docker compose -f docker-compose.yml pull
+docker compose -f docker-compose.yml up -d
 ```
 
-Core-Tests prüfen Formeln, Untergrenze, negative Werte, Einheiten, Intervalle, Validierung und Speicherung. Zusätzliche Web-/MCP-Tests prüfen Login, Logout, CSRF und MCP initialize/tools. Diese zusätzlichen Tests sind vor dem ersten CI-Lauf noch nicht als bestanden bestätigt. Liveanbieter und Telegram benötigen gesonderte Integrationstests. Keine echten Zugangsdaten in Tests.
-
-HttpOnly-Sitzung, SameSite-Cookies, CSRF-Header, Origin-/Host-Allowlist und Login-Limit sind enthalten. Admin-Passwort stammt aus der Container-Umgebung und wird mit scrypt zum Vergleich abgeleitet. Secrets und Volume vor fremdem Zugriff schützen. SQLite-Backup bei gestopptem Container. Keine Passwörter oder Tokens ins Repository. README und GitHub Pages bleiben Produkt-Zielbild; diese Datei dokumentiert den tatsächlich enthaltenen Umfang und seine Grenzen.
+Neue Gateway-/Telegram-Tests sind enthalten, aber vor dem CI-Lauf nicht als bestanden bestätigt. Live-MCP, Browser, Telegram und aktueller Build müssen separat verifiziert werden. README/Projektseite sind Produktbeschreibung, kein Testprotokoll.

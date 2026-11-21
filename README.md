@@ -1,108 +1,62 @@
 <p align="center"><img src="docs/assets/hero.svg" alt="hAI.FlexPowerInfo – Dein Strompreis. Dein Tarif. Deine Kontrolle." width="100%"></p>
 
-<h1 align="center">⚡ hAI.FlexPowerInfo</h1>
+<h1 align="center">⚡ hAI.FlexPowerInfo · highfishAI</h1>
 <p align="center">Dein Strompreis. Dein Tarif. Transparent aufgeschlüsselt.</p>
-<p align="center">
-<a href="LICENSE"><img src="https://img.shields.io/badge/Lizenz-MIT-22c55e?style=for-the-badge" alt="Lizenz: MIT"></a>
-<img src="https://img.shields.io/badge/Betrieb-Self--hosted-06b6d4?style=for-the-badge" alt="Zielbild: Self-hosted">
-<img src="https://img.shields.io/badge/Zielarchitektur-Docker-2496ed?style=for-the-badge&amp;logo=docker&amp;logoColor=white" alt="Zielarchitektur: Docker">
-<img src="https://img.shields.io/badge/Schnittstellen-Web%20%7C%20Telegram%20%7C%20MCP-a855f7?style=for-the-badge" alt="Zielbild: Web, Telegram und MCP">
-</p>
-
-> 🎯 Diese README beschreibt das Zielbild und den vorgesehenen Funktionsumfang – nicht den zugesicherten Implementierungsstand. Die Architektur-Badges sind keine Build- oder Release-Nachweise.
+<p align="center"><a href="LICENSE"><img src="https://img.shields.io/badge/Lizenz-MIT-22c55e?style=for-the-badge" alt="MIT"></a> <img src="https://img.shields.io/badge/Docker-Self--hosted-2496ed?style=for-the-badge" alt="Docker Self-hosted"> <img src="https://img.shields.io/badge/MCP-Public%20Read--only-a855f7?style=for-the-badge" alt="MCP Public Read-only"> <img src="https://img.shields.io/badge/Telegram-Private%20Chats-06b6d4?style=for-the-badge" alt="Telegram private Chats"></p>
 
 ## 🌈 Eine Preisbasis. Drei Zugänge.
 
-hAI.FlexPowerInfo ist als selbst gehostete Strompreis-Zentrale konzipiert: Börsenpreise mit deinem Tarif verbinden und deinen persönlichen Preis pro Kilowattstunde nachvollziehbar machen.
+hAI.FlexPowerInfo verbindet Börsenpreise mit deinem Tarif: als öffentliche Web-Preisübersicht, als Telegram-Auskunft und als lesender MCP-Dienst für Agenten. Das Ziel bleibt eine nachvollziehbare Strompreis-Zentrale auf deiner eigenen Infrastruktur. Architektur und Funktionsbeschreibung sind keine Build- oder Verfügbarkeitsgarantie.
 
-| Zugang | Aufgabe im Zielbild |
+| Zugang | Aufgabe |
 | --- | --- |
-| 🌐 Web-App | Mobilfreundliches Dashboard mit aktuellem Preis, Verlauf und Aufschlüsselung |
-| 💬 Telegram | Preise und Bestandteile direkt im Chat abfragen |
-| 🤖 MCP | Strukturierte Tarif- und Preisdaten für KI-Agenten |
+| 🌐 `/` | Öffentliche Preisübersicht ohne Anmeldung |
+| 🎛️ `/admin` | Geschützte Anmeldung und Tarifverwaltung |
+| 🤖 `/mcp` | Öffentliche lesende MCP-Tools; optional mit Token |
+| 💬 Telegram | Auskunft nur für freigegebene Nutzer |
 
-## 🎛️ Dein Tarif – frei konfigurierbar
+## 🎛️ Dein Tarif
 
-Die Admin-Oberfläche dient als zentrale Tarifverwaltung. Bestandteile lassen sich benennen, hinzufügen, ändern und entfernen:
-
-- ⚡ Energieanteil: dynamischer Börsenpreis, fester Wert oder Monats-/Referenzwert.
-- 🧩 Verbrauchsabhängige Bestandteile in ct/kWh: Stromsteuer, Netzentgelte, Konzessionsabgabe, Umlagen und eigene Zuschläge.
-- 🧮 Servicegebühren mit vertraglich passender Berechnungsbasis.
-- 🧾 Umsatzsteuer und separater monatlicher Grundpreis.
-
-Ausgangspunkt ist ein Immergrün-Tarif, nicht eine feste Bindung an einen Anbieter. Maßgeblich bleiben dein Preisblatt und dessen Berechnungsregeln.
-
-## 📊 Vom Börsenpreis zum persönlichen Arbeitspreis
+Energieanteil, frei benannte ct/kWh-Bestandteile, Umsatzsteuer, Grundpreis, Servicegebühr und optionale Energie-Untergrenze bilden die Tarifverwaltung. Energiepreise können dynamisch, fest oder als manueller Monats-/Referenzwert hinterlegt werden. Alle Tarifeingaben netto; Grundpreis separat. Gebühren folgen der ausgewählten Vertragsbasis. Ausgangspunkt ist ein Immergrün-Tarif, ohne feste Anbieterbindung.
 
 ```text
-⚡ Energieanteil
-🧩 + verbrauchsabhängige Tarifbestandteile
-🧮 + tarifliche Servicegebühr
-────────────────────────────────────────
-   = Netto-Arbeitspreis
-🧾 + Umsatzsteuer
-   = Brutto-Arbeitspreis in ct/kWh
+⚡ Energie + 🧩 Tarifbestandteile + 🧮 Servicegebühr
+= Netto-Arbeitspreis + Umsatzsteuer
+= Geschätzter Brutto-Arbeitspreis in ct/kWh
 ```
 
-Der Grundpreis bleibt separat sichtbar. Prozentuale Gebühren richten sich nach ihrer vertraglichen Basis; das Schema ist keine universelle Tarifformel.
+## 💬 Telegram ohne doppelte IDs
 
-## ⏱️ Aktualisieren, ohne Genauigkeit vorzutäuschen
+Für private Chats reichen `TELEGRAM_BOT_TOKEN` und `TELEGRAM_USER_IDS`. Ohne Chat-Liste akzeptiert der Bot ausschließlich private Chats der freigegebenen Nutzer. `TELEGRAM_CHAT_IDS` ist optional für explizite Ziele, etwa Gruppen; die Absenderfreigabe bleibt zusätzlich erforderlich. Inline-Menü: Preis, Verlauf, Tarif und Status. Dedizierten Bot ohne aktiven Webhook verwenden.
 
-Manueller Abruf oder optional automatisch, beispielsweise alle 15 Minuten. Die Intervalle der Datenquelle bleiben unverändert: Häufigerer Abruf erzeugt keine feineren Börsenpreise und ändert nicht dein Abrechnungsmodell.
+## 🤖 Öffentlicher Preis-MCP
 
-Stündliche und viertelstündliche Preise, Monatsreferenzen und feste Arbeitspreise werden unterschieden. Quelle, Gültigkeitsintervall, letzter erfolgreicher Abruf und Prüfstatus gehören zur Preisauskunft.
+`MCP_PUBLIC=true` erlaubt anonyme lesende Abfragen. `get_current_price`, `get_price_schedule`, `get_tariff` und `get_status` liefern Preiswerte, Komponenten, Zeitbezug und Aktualität. Die öffentliche Tarifzusammenfassung enthält Modell, Umsatzsteuer, Bestandteile und Netto-Grundpreis, aber nicht Tarifname, vollständige Einstellungen, Zugangsdaten oder interne Fehlermeldungen. Damit sind Preise und diese Bestandteile bewusst öffentlich.
 
-## 🤖 MCP für deine Agenten
-
-Vorgesehen: authentifizierter Streamable-HTTP-Endpunkt unter `/mcp`, ausschließlich lesend.
-
-| Tool | Ziel der Abfrage |
-| --- | --- |
-| `get_current_price` | Geschätzter Arbeitspreis mit Energieanteil, einzelnen Zuschlägen, Servicegebühr und Umsatzsteuer |
-| `get_price_schedule` | Verfügbare Preisintervalle für einen Zeitraum |
-| `get_tariff` | Tarifmodell, Bestandteile und Berechnungsregeln |
-| `get_status` | Datenalter, Abruffehler und Konfigurationsstatus |
-
-Agenten erhalten strukturierte Werte mit Einheiten und Zeitbezug; der Grundpreis wird separat zurückgegeben. Tarifänderungen bleiben der Admin-Oberfläche vorbehalten.
-
-## 💬 Telegram ohne zweite Preislogik
-
-Der Bot soll dieselben Preise und Aufschlüsselungen wie die Web-App liefern. Nur freigegebene Nutzer beziehungsweise Chats erhalten Zugriff. Bot-, Agent- und Admin-Zugänge bleiben getrennt.
+Optional `MCP_PUBLIC=false` und einen eigenen `MCP_TOKEN` mit mindestens 32 Zeichen setzen. Statische Bearer-Authentifizierung, keine OAuth-Discovery. Administration bleibt unabhängig davon geschützt. `PUBLIC_DASHBOARD=false` deaktiviert die öffentliche Web-Ansicht, nicht automatisch den öffentlichen MCP.
 
 ## 🐳 Ein Container. Eine gemeinsame Preisbasis.
 
 ```mermaid
 flowchart TB
-  U[🌐 Browser] --> W
-  T[💬 Telegram-Nutzer] --> B
-  A[🤖 KI-Agent] --> M
-  subgraph C[🐳 Ein Docker-Container · Zielarchitektur]
-    W[Web-App und Admin] --> P[⚡ Gemeinsamer Tarif- und Preisdienst]
-    B[Telegram-Bot] --> P
-    M[MCP-Server · lesend] --> P
-    P --> D[(💾 SQLite · persistentes Volume)]
-    P --> R[📡 Marktdatenabruf und Cache]
-  end
-  R --> Q[Externe Marktdatenquelle]
+  W[🌐 Öffentliche Webansicht] --> P[⚡ Gemeinsamer Tarifdienst]
+  A[🎛️ Geschützte Administration] --> P
+  T[💬 Telegram] --> P
+  M[🤖 Lesender MCP] --> P
+  P --> D[(💾 SQLite-Volume)]
+  P --> B[📡 Börsenpreise und Cache]
 ```
 
-Ziel sind Docker Compose und Portainer, persistente Einstellungen und zentrale Konfiguration über Umgebungsvariablen beziehungsweise Secrets. Keine persönlichen Vertragsdaten im öffentlichen Repository.
+Stack-Datei: `docker-compose.yml` · Host-Port: `8911` · Container-Port: `8080` · externes Netzwerk: `highfishNetwork`.
 
-## 🛡️ Transparenz und Sicherheit
+Eine optionale `PUBLIC_URL`, beispielsweise `https://strom.example.org`, vereinfacht Host- und Origin-Konfiguration. Ohne diese Angabe sind Hosts offen; vorhandene Origin-Header werden gegen die tatsächlich angesprochene Origin geprüft. Für Internetbetrieb PUBLIC_URL und HTTPS setzen. Öffentliche Datenzugriffe sind auf Anwendungsebene auf 60 Anfragen pro Minute und Client-IP begrenzt; Proxy-Limits ergänzen.
 
-Als erster Marktdatenadapter ist aWATTar Deutschland vorgesehen; Tariflogik und Datenquelle bleiben getrennt. Eine automatische Anmeldung im Immergrün-Kundenportal ist nicht Bestandteil des Zielbilds.
+## ⏱️ Transparenz statt Scheinpräzision
 
-- 🔎 Ungeprüfte Tarife und veraltete Daten sichtbar kennzeichnen.
-- 🚫 Fehlende Intervalle nicht durch erfundene Preise ersetzen.
-- 📉 Negative Börsenpreise entsprechend dem Vertrag behandeln.
-- ⚖️ Börsenpreis und persönlichen Endkundenpreis getrennt ausweisen.
-- 🔐 Externer Zugriff nur über HTTPS oder VPN; keine Zugangsdaten im Repository.
-- 🧾 Ergebnisse sind Tarifschätzungen, keine Abrechnungsnachweise.
+Optionaler Abruf alle 15 Minuten; Quelle und Vertrag bestimmen die Preisauflösung. Keine erfundenen Viertelstunden, keine automatisch berechnete Monatsreferenz. Ungeprüfte Tarife und alte Daten bleiben gekennzeichnet. Preise sind Schätzungen, keine Abrechnungsnachweise. Das Zielbild umfasst weitere Automatisierung; Schwellenwertalarme und Servicegebühren auf den Grundpreis sind nicht Teil dieser Umsetzung.
 
-## 🌍 Projektseite und Lizenz
+## 🚀 Betrieb und Lizenz
 
-Die statische Projektseite liegt in `docs/index.html`; die persönliche App gehört auf deine eigene Infrastruktur.
+[Installation und ENV](INSTALL.md) · [Docker-Konvention](DOCKER.md) · [Projektseite](https://jbkunama1.github.io/hAI.FlexPowerInfo/) · [MIT-Lizenz](LICENSE)
 
-[Projektseite](https://jbkunama1.github.io/hAI.FlexPowerInfo/) · [MIT-Lizenz](LICENSE)
-
-Ein Projekt von highfishAI. Unabhängig; keine offizielle Anwendung von Immergrün oder aWATTar.
+Ein Projekt von highfishAI. Keine offizielle Anwendung von Immergrün oder aWATTar.
