@@ -97,7 +97,7 @@ mcp_app=mcp.streamable_http_app()
 
 @asynccontextmanager
 async def lifespan(app):
-    if len(password)<16:raise RuntimeError('ADMIN_PASSWORD muss mindestens 16 Zeichen haben')
+    if len(password)<4:raise RuntimeError('ADMIN_PASSWORD muss mindestens 4 Zeichen haben')
     if mcp_token and len(mcp_token)<32:raise RuntimeError('MCP_TOKEN muss mindestens 32 Zeichen haben')
     async with mcp.session_manager.run():
         tasks=[asyncio.create_task(scheduler()),asyncio.create_task(telegram())]

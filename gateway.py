@@ -49,7 +49,7 @@ def get_status()->dict:
 mcp_app=mcp.streamable_http_app()
 @asynccontextmanager
 async def lifespan(app):
-    if len(legacy.password)<16:raise RuntimeError('ADMIN_PASSWORD muss mindestens 16 Zeichen haben')
+    if len(legacy.password)<4:raise RuntimeError('ADMIN_PASSWORD muss mindestens 4 Zeichen haben')
     if legacy.mcp_token and len(legacy.mcp_token)<32:raise RuntimeError('MCP_TOKEN muss mindestens 32 Zeichen haben')
     # Only the gateway MCP manager runs. The mounted admin app owns no lifecycle here.
     async with mcp.session_manager.run():
