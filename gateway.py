@@ -39,7 +39,16 @@ def get_price_schedule(start_ms:int=0,end_ms:int=0)->dict:
     return s
 @mcp.tool()
 def get_tariff()->dict:
-    """Read the full editable tariff after bearer authentication. No credentials."""
+    """Read the full editable tariff after bearer authentication. No credentials.
+
+    Stored monetary amounts are normalized NET: energy_ct, floor_ct and
+    components[].ct in ct/kWh; base_net in EUR/month. New saved tariffs
+    explicitly mark these values with price_basis='net'. Legacy tariffs
+    may lack price_basis metadata but their stored amounts are also NET.
+    Before submitting user-entered amounts to update_tariff, explicitly
+    ask the person entering each amount whether it is net or gross.
+    Never infer the basis, including for customer prices.
+    """
     return legacy.store.get('tariff',legacy.DEFAULT)
 @mcp.tool()
 def get_status()->dict:
@@ -47,7 +56,35 @@ def get_status()->dict:
     s=price_state();return {k:s[k] for k in ('source','fetched','stale','configured')}
 @mcp.tool()
 def update_tariff(tariff:dict)->dict:
-    """WRITE: replace the complete tariff. Read get_tariff first; review changes with the user. All numeric tariff inputs are NET. Clears the tariff's checked flag. Does not alter credentials."""
+    """WRITE: replace the complete tariff. Read get_tariff first and review
+    the exact changes with the user before writing. Clears the tariff's
+    checked flag (confirmed=False). Does not alter credentials.
+
+    For EVERY user-entered monetary amount, explicitly ask the person
+    entering it: net or gross? No default or inferred basis is allowed,
+    including for customer prices. Submit a price_basis object containing
+    energy_ct and base_net, plus floor_ct when that amount is not empty.
+    Each entry must be exactly 'net' or 'gross'. Every components[] item
+    must also include its own price_basis: 'net' or 'gross'. Missing or
+    invalid required basis values are rejected by the server.
+
+    Units: energy_ct, floor_ct and components[].ct are ct/kWh; base_net
+    is EUR/month, despite the legacy field name accepting either input
+    basis. vat and fee_percent are percentages, not monetary amounts.
+    Example basis metadata: price_basis={'energy_ct':'gross',
+    'base_net':'net','floor_ct':'gross'}; a component can be
+    {'name':'Surcharge','ct':'1.19','price_basis':'gross'}.
+
+    Gross input is converted to NET on save using the supplied tariff vat
+    percentage. Saved and returned monetary amounts are NET with explicit
+    'net' basis metadata. The price calculation then applies VAT once for
+    gross output; do not add VAT again to an already gross customer price.
+    Existing stored legacy amounts remain NET and must not be silently
+    reinterpreted as gross. Unchanged known stored amounts can be submitted
+    with explicit 'net' metadata; never use that as a default for new input.
+    Separate market-alert thresholds are not changed by this tool and
+    remain gross ct/kWh.
+    """
     candidate=validate(tariff);candidate['confirmed']=False
     saved=legacy.store.save_tariff(candidate)
     return {'saved':True,'tariff':saved,'notice':'Tarif gespeichert. Vor Verwendung erneut anhand des Vertrags prüfen.'}
