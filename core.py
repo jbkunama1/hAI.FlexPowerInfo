@@ -2,6 +2,7 @@ import json, sqlite3, time
 from pathlib import Path
 from decimal import Decimal, InvalidOperation
 from copy import deepcopy
+from price_input import normalize_tariff_input
 
 DEFAULT={'name':'Mein Tarif','confirmed':False,'mode':'spot','energy_ct':'0','vat':'19','base_net':'0','fee_percent':'0','fee_basis':'energy','floor_ct':None,'auto_refresh':False,'refresh_minutes':15,'components':[]}
 def dec(x):
@@ -12,8 +13,8 @@ def dec(x):
     return d
 
 def validate(s):
+    s=normalize_tariff_input(s)
     v=deepcopy(DEFAULT)
-    if not isinstance(s,dict): raise ValueError('Tarifobjekt erwartet')
     if s.get('mode') not in ('spot','fixed','reference'): raise ValueError('Unbekanntes Preismodell')
     if s.get('fee_basis') not in ('energy','subtotal'): raise ValueError('Unbekannte Gebührenbasis')
     v['name']=str(s.get('name',''))[:150]
@@ -30,9 +31,8 @@ def validate(s):
     interval=dec(s.get('refresh_minutes',15))
     if interval!=int(interval) or not 15<=interval<=1440: raise ValueError('Abrufintervall 15–1440 ganze Minuten')
     v['refresh_minutes']=int(interval)
-    parts=s.get('components',[])
-    if not isinstance(parts,list) or len(parts)>50: raise ValueError('Maximal 50 Bestandteile')
-    v['components']=[{'name':str(p['name'])[:100],'ct':str(dec(p['ct']))} for p in parts]
+    v['components']=[{'name':str(p['name'])[:100],'ct':str(dec(p['ct'])),'price_basis':'net'} for p in s['components']]
+    v['price_basis']=s['price_basis']
     return v
 
 def calculate(market,s):
